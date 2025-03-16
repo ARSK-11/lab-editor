@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Fabric.js Lab Editor</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            padding: 15px;
+            background-color: #FAFAFA;
+            font-family: 'Inter', sans-serif;
+            color: #1A1A1A;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            background: #000000;
+            --gap: 4em;
+            --line: 1px;
+            --color: rgba(255, 255, 255, 0.2);
+            background-image: linear-gradient(
+                -90deg,
+                transparent calc(var(--gap) - var(--line)),
+                var(--color) calc(var(--gap) - var(--line) + 1px),
+                var(--color) var(--gap)
+            ),
+            linear-gradient(
+                0deg,
+                transparent calc(var(--gap) - var(--line)),
+                var(--color) calc(var(--gap) - var(--line) + 1px),
+                var(--color) var(--gap)
+            );
+            background-size: var(--gap) var(--gap);
+        }
+
+        .editor-container {
+            display: flex;
+            gap: 20px;
+            height: calc(100vh - 30px);
+            max-width: 1600px;
+            margin: 0 auto;
+            position: relative;
+        }
+
+        .left-panel, .right-panel {
+            width: 250px;
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+            position: fixed;
+            top: 15px;
+            bottom: 15px;
+            overflow-y: auto;
+            z-index: 100;
+        }
+
+        .left-panel {
+            left: 15px;
+        }
+
+        .right-panel {
+            right: 15px;
+        }
+
+        .canvas-container {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            margin: 0 280px;
+            position: absolute;
+            cursor: default;
+            user-select: none;
+            transform-origin: center;
+            will-change: transform;
+            touch-action: none;
+        }
+
+        .ratio-selector {
+            padding: 12px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+            display: flex;
+            gap: 10px;
+        }
+
+        .zoom-controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 10px;
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: white;
+            padding: 10px;
+            border-radius: 10px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+            z-index: 1000;
+        }
+
+        .zoom-controls button {
+            width: 36px;
+            height: 36px;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .zoom-level {
+            display: flex;
+            align-items: center;
+            padding: 0 10px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .card {
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+
+        .card-title {
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .card-title .material-icons {
+            font-size: 18px;
+            color: #666;
+        }
+
+        button {
+            width: 100%;
+            padding: 10px;
+            margin: 6px 0;
+            border: 1px solid #E5E5E5;
+            border-radius: 6px;
+            background: white;
+            cursor: pointer;
+            font-family: 'Inter', sans-serif;
+            font-size: 13px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s ease;
+        }
+
+        button:hover {
+            background: #F5F5F5;
+            border-color: #D1D1D1;
+        }
+
+        button .material-icons {
+            font-size: 16px;
+            color: #666;
+        }
+
+        .color-picker {
+            width: 100%;
+            height: 35px;
+            margin: 10px 0;
+            border: 2px solid #E5E5E5;
+            border-radius: 6px;
+            cursor: pointer;
+            padding: 2px;
+        }
+
+        #canvas {
+            border: 2px solid #E5E5E5;
+            border-radius: 10px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.05);
+        }
+
+        .font-size-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 10px 0;
+        }
+
+        .font-size-control input {
+            width: 60px;
+            padding: 5px;
+            border: 1px solid #E5E5E5;
+            border-radius: 4px;
+        }
+
+        #downloadedImage {
+            max-width: 100%;
+            display: none;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="editor-container">
+        <!-- Left Panel -->
+        <div class="left-panel">
+            <div class="card">
+                <div class="card-title">
+                    <span class="material-icons">category</span>
+                    Shapes
+                </div>
+                <button onclick="addShape('rect')">
+                    <span class="material-icons">rectangle</span>
+                    Rectangle
+                </button>
+                <button onclick="addShape('circle')">
+                    <span class="material-icons">circle</span>
+                    Circle
+                </button>
+                <button onclick="addShape('triangle')">
+                    <span class="material-icons">change_history</span>
+                    Triangle
+                </button>
+            </div>
+            <div class="card">
+                <div class="card-title">
+                    <span class="material-icons">text_fields</span>
+                    Text
+                </div>
+                <button onclick="addText()">
+                    <span class="material-icons">add</span>
+                    Add Text
+                </button>
+            </div>
+            <div class="card">
+                <div class="card-title">
+                    <span class="material-icons">image</span>
+                    Export
+                </div>
+                <button onclick="exportToImage()">
+                    <span class="material-icons">download</span>
+                    Export as Image
+                </button>
+            </div>
+        </div>
+
+        <!-- Canvas Area -->
+        <div class="canvas-container" id="draggableCanvas">
+            <div class="ratio-selector">
+                <button onclick="setCanvasSize('desktop')">
+                    <span class="material-icons">desktop_windows</span>
+                    Desktop (1920x1080)
+                </button>
+                <button onclick="setCanvasSize('mobile')">
+                    <span class="material-icons">smartphone</span>
+                    Mobile (375x667)
+                </button>
+            </div>
+            <canvas id="canvas"></canvas>
+            <img id="downloadedImage" alt="Exported canvas">
+        </div>
+
+        <!-- Right Panel -->
+        <div class="right-panel">
+            <div class="card" id="background-controls">
+                <div class="card-title">
+                    <span class="material-icons">format_color_fill</span>
+                    Background
+                </div>
+                <input type="color" class="color-picker" id="bg-color" onchange="changeBackgroundColor(this.value)">
+            </div>
+            <div class="card" id="object-controls" style="display: none;">
+                <div class="card-title">
+                    <span class="material-icons">palette</span>
+                    Object Properties
+                </div>
+                <input type="color" class="color-picker" id="object-color" onchange="changeObjectColor(this.value)">
+                <div id="text-controls" style="display: none;">
+                    <div class="font-size-control">
+                        <span>Font Size:</span>
+                        <input type="number" id="font-size" min="1" max="200" value="20" onchange="changeFontSize(this.value)">
+                    </div>
+                    <button onclick="setTextAlign('left')">
+                        <span class="material-icons">format_align_left</span>
+                        Left Align
+                    </button>
+                    <button onclick="setTextAlign('center')">
+                        <span class="material-icons">format_align_center</span>
+                        Center Align
+                    </button>
+                    <button onclick="setTextAlign('right')">
+                        <span class="material-icons">format_align_right</span>
+                        Right Align
+                    </button>
+                </div>
+                <button onclick="deleteSelectedObject()">
+                    <span class="material-icons">delete</span>
+                    Delete
+                </button>
+            </div>
+            <div class="card">
+                <div class="zoom-controls">
+                    <button onclick="zoomContent('out')">
+                        <span class="material-icons">remove</span>
+                    </button>
+                    <div class="zoom-level">100%</div>
+                    <button onclick="zoomContent('in')">
+                        <span class="material-icons">add</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let canvas;
+        let isDragging = false;
+        let currentX;
+        let currentY;
+        let initialX;
+        let initialY;
+        let xOffset = 0;
+        let yOffset = 0;
+        let canvasIsDragging = false;
+        let zoomLevel = 1;
+        let lastFrameTime = 0;
+        const FRAME_RATE = 1000/60; // 60fps
+        
+        window.onload = function() {
+            canvas = new fabric.Canvas('canvas', {
+                selection: true
+            });
+            setCanvasSize('desktop');
+            
+            // Setup object selection event
+            canvas.on('selection:created', updateControls);
+            canvas.on('selection:cleared', updateControls);
+            canvas.on('selection:updated', updateControls);
+
+            // Setup drag functionality for canvas container
+            const container = document.getElementById("draggableCanvas");
+            
+            container.addEventListener("mousedown", dragStart, {passive: false});
+            container.addEventListener("mouseup", dragEnd, {passive: false});
+            container.addEventListener("mousemove", drag, {passive: false});
+            
+            container.addEventListener("touchstart", dragStart, {passive: false});
+            container.addEventListener("touchend", dragEnd, {passive: false});
+            container.addEventListener("touchmove", drag, {passive: false});
+
+            // Make objects movable
+            canvas.on('mouse:down', function(opt) {
+                const evt = opt.e;
+                if (evt.altKey === true) {
+                    isDragging = true;
+                    canvas.selection = false;
+                    initialX = evt.clientX - xOffset;
+                    initialY = evt.clientY - yOffset;
+                }
+            });
+
+            canvas.on('mouse:move', function(opt) {
+                if (isDragging) {
+                    const currentTime = Date.now();
+                    if (currentTime - lastFrameTime >= FRAME_RATE) {
+                        const evt = opt.e;
+                        currentX = evt.clientX - initialX;
+                        currentY = evt.clientY - initialY;
+                        xOffset = currentX;
+                        yOffset = currentY;
+                        requestAnimationFrame(() => {
+                            setTranslate(currentX, currentY, container);
+                        });
+                        lastFrameTime = currentTime;
+                    }
+                }
+            });
+
+            canvas.on('mouse:up', function() {
+                isDragging = false;
+                canvas.selection = true;
+            });
+
+            // Add mouse wheel zoom
+            document.addEventListener('wheel', function(e) {
+                if (e.ctrlKey) {
+                    e.preventDefault();
+                    const delta = e.deltaY;
+                    if (delta > 0) {
+                        zoomContent('out');
+                    } else {
+                        zoomContent('in');
+                    }
+                }
+            }, { passive: false });
+
+            // Add keyboard delete handler
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Delete') {
+                    deleteSelectedObject();
+                }
+            });
+        }
+
+        function exportToImage() {
+            // Convert canvas to image
+            const dataURL = canvas.toDataURL({
+                format: 'png',
+                quality: 1
+            });
+
+            // Create download link
+            const link = document.createElement('a');
+            link.download = 'canvas-export.png';
+            link.href = dataURL;
+            
+            // Show preview
+            const previewImg = document.getElementById('downloadedImage');
+            previewImg.src = dataURL;
+            previewImg.style.display = 'block';
+            
+            // Trigger download
+            link.click();
+        }
+
+        function zoomContent(direction) {
+            if (direction === 'in') {
+                zoomLevel *= 1.1;
+            } else {
+                zoomLevel /= 1.1;
+            }
+
+            // Limit zoom levels
+            if (zoomLevel > 3) zoomLevel = 3;
+            if (zoomLevel < 0.5) zoomLevel = 0.5;
+
+            requestAnimationFrame(() => {
+                document.getElementById("draggableCanvas").style.transform = `translate(${xOffset}px, ${yOffset}px) scale(${zoomLevel})`;
+                document.querySelector('.zoom-level').textContent = Math.round(zoomLevel * 100) + '%';
+            });
+        }
+
+        function dragStart(e) {
+            e.preventDefault();
+            if (e.type === "mousedown") {
+                initialX = e.clientX - xOffset;
+                initialY = e.clientY - yOffset;
+            } else {
+                initialX = e.touches[0].clientX - xOffset;
+                initialY = e.touches[0].clientY - yOffset;
+            }
+
+            if (e.target === document.getElementById("draggableCanvas") || 
+                e.target.closest(".ratio-selector")) {
+                canvasIsDragging = true;
+                lastFrameTime = Date.now();
+            }
+        }
+
+        function dragEnd(e) {
+            e.preventDefault();
+            initialX = currentX;
+            initialY = currentY;
+            canvasIsDragging = false;
+        }
+
+        function drag(e) {
+            if (canvasIsDragging) {
+                e.preventDefault();
+                
+                const currentTime = Date.now();
+                if (currentTime - lastFrameTime >= FRAME_RATE) {
+                    if (e.type === "mousemove") {
+                        currentX = e.clientX - initialX;
+                        currentY = e.clientY - initialY;
+                    } else {
+                        currentX = e.touches[0].clientX - initialX;
+                        currentY = e.touches[0].clientY - initialY;
+                    }
+
+                    xOffset = currentX;
+                    yOffset = currentY;
+
+                    requestAnimationFrame(() => {
+                        setTranslate(currentX, currentY, document.getElementById("draggableCanvas"));
+                    });
+                    
+                    lastFrameTime = currentTime;
+                }
+            }
+        }
+
+        function setTranslate(xPos, yPos, el) {
+            el.style.transform = `translate(${xPos}px, ${yPos}px) scale(${zoomLevel})`;
+        }
+
+        function setCanvasSize(type) {
+            if (type === 'desktop') {
+                canvas.setWidth(1000);
+                canvas.setHeight(562);
+            } else {
+                canvas.setWidth(375);
+                canvas.setHeight(667);
+            }
+            canvas.renderAll();
+        }
+
+        function addShape(type) {
+            let shape;
+            switch(type) {
+                case 'rect':
+                    shape = new fabric.Rect({
+                        width: 100,
+                        height: 100,
+                        fill: '#000000',
+                        left: 100,
+                        top: 100
+                    });
+                    break;
+                case 'circle':
+                    shape = new fabric.Circle({
+                        radius: 50,
+                        fill: '#000000',
+                        left: 100,
+                        top: 100
+                    });
+                    break;
+                case 'triangle':
+                    shape = new fabric.Triangle({
+                        width: 100,
+                        height: 100,
+                        fill: '#000000',
+                        left: 100,
+                        top: 100
+                    });
+                    break;
+            }
+            canvas.add(shape);
+            canvas.setActiveObject(shape);
+        }
+
+        function addText() {
+            const text = new fabric.IText('Double Click to Edit', {
+                left: 100,
+                top: 100,
+                fontSize: 20,
+                fill: '#000000',
+                fontFamily: 'Inter',
+                textAlign: 'left'
+            });
+            canvas.add(text);
+            canvas.setActiveObject(text);
+        }
+
+        function updateControls() {
+            const bgControls = document.getElementById('background-controls');
+            const objControls = document.getElementById('object-controls');
+            const textControls = document.getElementById('text-controls');
+            const activeObject = canvas.getActiveObject();
+
+            if (activeObject) {
+                bgControls.style.display = 'none';
+                objControls.style.display = 'block';
+                document.getElementById('object-color').value = activeObject.fill;
+                
+                // Show text controls only if selected object is text
+                if (activeObject.type === 'i-text') {
+                    textControls.style.display = 'block';
+                    document.getElementById('font-size').value = activeObject.fontSize;
+                } else {
+                    textControls.style.display = 'none';
+                }
+            } else {
+                bgControls.style.display = 'block';
+                objControls.style.display = 'none';
+            }
+        }
+
+        function setTextAlign(align) {
+            const activeObject = canvas.getActiveObject();
+            if (activeObject && activeObject.type === 'i-text') {
+                activeObject.set('textAlign', align);
+                canvas.renderAll();
+            }
+        }
+
+        function changeFontSize(size) {
+            const activeObject = canvas.getActiveObject();
+            if (activeObject && activeObject.type === 'i-text') {
+                activeObject.set('fontSize', parseInt(size));
+                canvas.renderAll();
+            }
+        }
+
+        function changeBackgroundColor(color) {
+            canvas.backgroundColor = color;
+            canvas.renderAll();
+        }
+
+        function changeObjectColor(color) {
+            const activeObject = canvas.getActiveObject();
+            if (activeObject) {
+                activeObject.set('fill', color);
+                canvas.renderAll();
+            }
+        }
+
+        function deleteSelectedObject() {
+            const activeObject = canvas.getActiveObject();
+            if (activeObject) {
+                canvas.remove(activeObject);
+                updateControls();
+            }
+        }
+    </script>
+</body>
+</html>
